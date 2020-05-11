@@ -1,14 +1,30 @@
 package com.spring.impl;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Random;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.spring.entity.ApplicationEntity;
+import com.spring.entity.CandidateEntity;
+import com.spring.entity.ElectionEntity;
+import com.spring.entity.PartyEntity;
+import com.spring.entity.ResultEntity;
 import com.spring.entity.UserEntity;
+import com.spring.entity.VoterDetailsEntity;
+import com.spring.json.Application;
 import com.spring.json.LoginResponse;
 import com.spring.json.User;
+import com.spring.json.VoterDetails;
+import com.spring.repository.ApplicationRepository;
+import com.spring.repository.CandidateRepository;
+import com.spring.repository.ElectionRepository;
+import com.spring.repository.ResultRepository;
 import com.spring.repository.UserRepository;
+import com.spring.repository.VoterDetailsRepository;
 import com.spring.service.UserService;
 
 @Service
@@ -16,6 +32,21 @@ public class UserServiceImpl implements UserService {
 
 	@Autowired
 	private UserRepository userRepository;
+
+	@Autowired
+	private ApplicationRepository applicationRepository;
+
+	@Autowired
+	private ElectionRepository electionRepository;
+
+	@Autowired
+	private CandidateRepository candidateRepository;
+
+	@Autowired
+	private VoterDetailsRepository voterDetailsRepository;
+
+	@Autowired
+	private ResultRepository resultRepository;
 
 	private final Random random = new SecureRandom();
 	private final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -160,6 +191,118 @@ public class UserServiceImpl implements UserService {
 		} else {
 			return "Invalid SessionId";
 		}
+
+	}
+
+	@Override
+	public Object sendRequest(Application application, int userId, String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		userEntity = userRepository.findByUserId(userId);
+		if (userEntity != null) {
+			ApplicationEntity applicationEntity = new ApplicationEntity();
+			applicationEntity.setUserId(userId);
+			applicationEntity.setPassedStatus(1);
+			applicationEntity.setApprovedStatus(0);
+			applicationEntity.setConstituency(userEntity.getConstituency());
+			applicationRepository.save(applicationEntity);
+			return "Application request sent";
+		}
+
+		return "Session id invalid";
+	}
+
+	@Override
+	public Object getStatus(int userId, String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		if (userEntity != null) {
+
+			ApplicationEntity status = applicationRepository.findByUserId(userId);
+			status = applicationRepository.save(status);
+			return status;
+		}
+		return "{\"result\": \"failure\",\"message\": \"Wrong Session Id\"}";
+	}
+
+	@Override
+	public Object viewSchedule(String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		if (userEntity != null) {
+			LocalDate date = LocalDate.now();
+			List<ElectionEntity> electionEntity = electionRepository.findByElectionDateGreaterThan(date);
+			if (electionEntity != null)
+				return electionEntity;
+			else
+				return "No Upcoming election.";
+
+		} else {
+			return "Invalid SessionId.";
+		}
+	}
+
+	@Override
+	public Object candidatesByElection(int electionId, String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		if (userEntity != null) {
+			ElectionEntity electionEntity = electionRepository.findByElectionId(electionId);
+			int id = electionEntity.getElectionid();
+			List<CandidateEntity> candidateList = candidateRepository.findByElectionId(id);
+			return candidateList;
+		} else {
+			LoginResponse loginResponse = new LoginResponse();
+			loginResponse.setMessage("INVALID SESSION ID");
+			loginResponse.setResult("unsucessfull");
+			loginResponse.setSessionId(null);
+			return loginResponse;
+		}
+
+	}
+
+	@Override
+	public Object castVote(VoterDetails voterDetails, int voterId, String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+
+		if (userEntity != null) {
+			VoterDetailsEntity voterEntity = voterDetailsRepository.findByVoterId(voterId);
+			voterEntity = voterDetailsRepository.findByVote(0);
+			if (voterEntity != null) {
+				voterEntity.setVote(1);
+				voterDetailsRepository.save(voterEntity);
+				int id = voterEntity.getCandidateId();
+				ResultEntity resultEntity = resultRepository.findByCandidateId(id);
+				int votes = (int) resultEntity.getVoteCount();
+				resultEntity.setVoteCount(votes + 1);
+				resultRepository.save(resultEntity);
+				return "Successfully cast vote";
+			} else {
+				return " Vote casted already";
+			}
+		}
+		return "Invalid SessionId";
+	}
+
+	@Override
+	public Object viewResult(String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		if (userEntity != null) {
+			List<ResultEntity> result = resultRepository.OrderByVoteCountDesc();
+			return result;
+		}
+		return "Invalid SessionId";
+
+	}
+
+	@Override
+	public Object changePassword(User user, String sessionId) {
+		UserEntity userEntity = userRepository.findBySessionId(sessionId);
+		if (userEntity != null) {
+			String password = userEntity.getPassword();
+			int id = userEntity.getUserId();
+			userEntity.setPassword(user.getPassword());
+			userRepository.save(userEntity);
+			return "Password changed Successfully.";
+
+		}
+		return "Invalid SessionId";
 
 	}
 

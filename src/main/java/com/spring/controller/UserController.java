@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import com.spring.entity.UserEntity;
+import com.spring.json.Application;
 import com.spring.json.LoginResponse;
 import com.spring.json.User;
+import com.spring.json.VoterDetails;
 import com.spring.service.UserService;
 
 
@@ -66,5 +68,40 @@ public class UserController {
 	public Object deleteUser(@PathVariable(value="userId") int userId, @RequestHeader(name = "session_id") String sessionId) {
 		return userService.deleteUser(userId,sessionId);
 	}
+	
+	@PutMapping("/user/{userId}/application")
+	public Object sendRequest(@RequestBody Application application,@PathVariable(value="userId") int userId,@RequestHeader(name = "session_id") String sessionId) {
+		return userService.sendRequest(application,userId,sessionId);
+	}
+	
+	@GetMapping(value="/voter/request/{userId}")
+	public Object getStatus(@PathVariable(name="userId") int userId,@RequestHeader(name = "sessionId") String sessionId){
+		return userService.getStatus(userId,sessionId);
+	}
+	
+	@GetMapping(value = "/voter/schedule", produces = MediaType.APPLICATION_JSON_VALUE)
+	public Object upcomingElection(@RequestHeader(name = "sessionid") String sessionid) {
 
+		return userService.viewSchedule(sessionid);
+	}
+	
+	@GetMapping(value="election/candidate/{electionId}")
+	public Object detailsByElection(@PathVariable(name="electionId") int electionId,@RequestHeader(name="sessionId") String sessionId){
+		return userService.candidatesByElection(electionId,sessionId);	
+	}
+	
+	@PutMapping("/user/vote/{voterId}")
+	public Object castVote(@RequestBody VoterDetails voterDetails,@PathVariable(value="voterId") int voterId,@RequestHeader(name = "sessionId") String sessionId) {
+		return userService.castVote(voterDetails,voterId,sessionId);
+	}
+	
+	@GetMapping(value="user/result")
+	public Object getResult(@RequestHeader(name="sessionId") String sessionId){
+		return userService.viewResult(sessionId);	
+	}
+	
+	@PutMapping("/user/changePassword")
+	public Object changePassword(@RequestBody User user,@RequestHeader(name = "sessionId") String sessionId) {
+		return userService.changePassword(user,sessionId);
+	}
 }
